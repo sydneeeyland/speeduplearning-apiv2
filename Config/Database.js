@@ -8,5 +8,6 @@ export const MongoDB = async () => {
     console.log(`Connected to ${conn.connection.host}`);
   } catch (er) {
     console.log(er);
+    console.log("a");
   }
 };
