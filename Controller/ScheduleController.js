@@ -1,5 +1,5 @@
 // Package
-import moment from "moment";
+import moment from "moment-timezone";
 
 // Model
 import ScheduleModel from "../Model/ScheduleModel.js";
@@ -7,9 +7,9 @@ import ParticipantModel from "../Model/ParticipantModel.js";
 import UserInfoModel from "../Model/UserInfoModel.js";
 import AuthModel from "../Model/AuthModel.js";
 
-const ServerTodayDate = moment().format("MM/DD/YYYY");
+const ServerTodayDate = moment().tz("Asia/Manila").format("MM/DD/YYYY");
 const ServerTomorrowDate = moment().add(1, "day").format("MM/DD/YYYY");
-
+console.log(ServerTodayDate, ServerTomorrowDate);
 async function CreateNewSchedule(
   teacherId,
   teacherName,
@@ -129,18 +129,9 @@ const Schedule = {
             _id: [...sched],
           });
 
-          schedule.sort((a, b) => {
-            if (a.date === b.date) {
-              if (!CalendarData.dates.includes(a.date)) {
-                CalendarData.dates.push(a.date);
-              }
-            } else {
-              if (
-                !CalendarData.dates.includes(a.date) ||
-                !CalendarData.dates.includes(b.date)
-              ) {
-                CalendarData.dates.push(a.date);
-              }
+          schedule.map((key) => {
+            if (!CalendarData.dates.includes(key.date)) {
+              CalendarData.dates.push(key.date);
             }
           });
 
@@ -151,11 +142,15 @@ const Schedule = {
             });
 
             schedule.map((key) => {
+              const studentId = participation.filter(
+                (x) => x.scheduleId === key._id.valueOf()
+              );
               if (key.date === CalendarData.dates[i]) {
                 CalendarData.calendar[
                   moment(Date.parse(CalendarData.dates[i])).format("YYYY-MM-DD")
                 ].push({
                   id: key._id.valueOf(),
+                  studentId: studentId[0].userId,
                   teacherName: key.teacherName,
                   time: key.time,
                   typeOfClass: key.typeOfClass,
@@ -164,7 +159,6 @@ const Schedule = {
               }
             });
           }
-
           res.json({ success: true, data: CalendarData });
         }
       } else if (hasUser.role === "teacher") {
@@ -207,6 +201,7 @@ const Schedule = {
           });
           res.json({ success: true, data: HomeData });
         } else if (screen === "Calendar") {
+          let data = [];
           let CalendarData = {
             calendar: {},
           };
@@ -214,37 +209,122 @@ const Schedule = {
             teacherId: accountId,
           });
 
-          for (let i = 0; i < hasSchedule.length; i++) {
-            if (
-              !CalendarData.calendar.hasOwnProperty(
-                moment(Date.parse(hasSchedule[i].date)).format("YYYY-MM-DD")
-              )
-            ) {
-              let calendarData = [];
+          await Promise.all(
+            hasSchedule.map(async (key) => {
               const hasParticipant = await ParticipantModel.find({
-                scheduleId: hasSchedule[i]._id.valueOf(),
-              });
-
-              hasParticipant.map((key) => {
-                calendarData.push({
-                  id: hasSchedule[i]._id.valueOf(),
-                  teacherName: key.student,
-                  time: hasSchedule[i].time,
-                  typeOfClass: hasSchedule[i].typeOfClass,
-                  status: key.status,
-                  note: key.note,
-                });
-              });
+                scheduleId: key._id.valueOf(),
+              }).sort({ createdAt: 1 });
 
               Object.assign(CalendarData.calendar, {
-                [moment(Date.parse(hasSchedule[i].date)).format("YYYY-MM-DD")]:
-                  calendarData,
+                [moment(Date.parse(key.date)).format("YYYY-MM-DD")]: [],
               });
-            }
-          }
+
+              data.push({
+                date: moment(Date.parse(key.date)).format("YYYY-MM-DD"),
+                time: key.time,
+                participantId: hasParticipant[0]._id.valueOf(),
+                typeOfClass: key.typeOfClass,
+              });
+            })
+          );
+
+          await Promise.all(
+            data.map(async (key) => {
+              const hasParticipant = await ParticipantModel.findOne({
+                _id: key.participantId,
+              });
+
+              CalendarData.calendar[key.date].push({
+                id: key.participantId,
+                teacherName: hasParticipant.student,
+                time: key.time,
+                typeOfClass: key.typeOfClass,
+                status: hasParticipant.status,
+                note: hasParticipant.note,
+              });
+            })
+          );
+
           res.json({ success: true, data: CalendarData });
         }
+      } else if (hasUser.role === "admin") {
+        let tempData = [];
+        let CalendarData = {
+          calendar: {},
+        };
+
+        const hasSchedules = await ScheduleModel.find();
+
+        hasSchedules.map((key) => {
+          tempData.push({
+            scheduleId: key._id.valueOf(),
+            teacherId: key.teacherId,
+            teacherName: key.teacherName,
+            date: key.date,
+            time: key.time,
+            typeOfClass: key.typeOfClass,
+            status: key.status,
+          });
+        });
+
+        await Promise.all(
+          tempData.map(async (key) => {
+            const hasParticipant = await ParticipantModel.find({
+              scheduleId: key.scheduleId,
+            });
+
+            if (
+              !CalendarData.calendar.hasOwnProperty(
+                moment(Date.parse(key.date)).format("YYYY-MM-DD")
+              )
+            ) {
+              Object.assign(CalendarData.calendar, {
+                [moment(Date.parse(key.date)).format("YYYY-MM-DD")]: [],
+              });
+
+              CalendarData.calendar[
+                moment(Date.parse(key.date)).format("YYYY-MM-DD")
+              ].push({
+                scheduleId: key.scheduleId,
+                teacherId: key.teacherId,
+                teacherName: key.teacherName,
+                date: key.date,
+                time: key.time,
+                typeOfClass: key.typeOfClass,
+                status: key.status,
+                participants: hasParticipant,
+              });
+            } else {
+              CalendarData.calendar[
+                moment(Date.parse(key.date)).format("YYYY-MM-DD")
+              ].push({
+                scheduleId: key.scheduleId,
+                teacherId: key.teacherId,
+                teacherName: key.teacherName,
+                date: key.date,
+                time: key.time,
+                typeOfClass: key.typeOfClass,
+                status: key.status,
+                participants: hasParticipant,
+              });
+            }
+          })
+        );
+
+        res.json({ success: true, data: CalendarData });
       }
+    } catch (err) {
+      console.log(err);
+    }
+  },
+  _UpdateParticipant: async (req, res) => {
+    const { scheduleId, accountId } = req.body;
+    try {
+      await ParticipantModel.updateOne(
+        { scheduleId: scheduleId, userId: accountId },
+        { ...req.body }
+      );
+      res.json({ success: true, message: "Update success." });
     } catch (err) {
       console.log(err);
     }

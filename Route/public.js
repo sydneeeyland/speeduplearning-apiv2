@@ -20,11 +20,15 @@ Router.post("/auth/register", AuthController._Register);
 
 /**
  **  @desc    POST schedule
- **  @route   POST /speedup/schedule/[create, update, view]
+ **  @route   POST /speedup/schedule/[create, update, update_participant, view]
  **  @access  private
  */
 Router.post("/schedule/create", ScheduleController._Create);
 Router.post("/schedule/update", ScheduleController._Update);
+Router.post(
+  "/schedule/update_participant",
+  ScheduleController._UpdateParticipant
+);
 Router.post("/schedule/view", ScheduleController._View);
 
 /**
