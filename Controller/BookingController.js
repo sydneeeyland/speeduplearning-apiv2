@@ -6,7 +6,6 @@ const Booking = {
   _View: async (req, res) => {
     try {
       const { accountId } = req.body;
-      console.log(accountId);
       let teachers = [];
       let BookingData = [];
 

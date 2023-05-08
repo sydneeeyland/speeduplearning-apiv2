@@ -9,7 +9,7 @@ import AuthModel from "../Model/AuthModel.js";
 
 const ServerTodayDate = moment().tz("Asia/Manila").format("MM/DD/YYYY");
 const ServerTomorrowDate = moment().add(1, "day").format("MM/DD/YYYY");
-console.log(ServerTodayDate, ServerTomorrowDate);
+
 async function CreateNewSchedule(
   teacherId,
   teacherName,
