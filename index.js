@@ -27,7 +27,12 @@ Application.listen(3000, () => {
       credentials: true,
     })
   );
-
+  let arr = [
+    [1,2],
+  [3,4],
+  [5,6,[7,8],9],
+  [10,11,12]
+  ]
   Application.use("/speedup", PublicRoute);
   console.log("Server is running on port 3000");
 });
